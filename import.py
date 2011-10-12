@@ -5,6 +5,9 @@ import transaction
 
 from AccessControl.User import UnrestrictedUser
 from AccessControl.SecurityManagement import newSecurityManager
+from Testing.makerequest import makerequest
+from zope.app.component.hooks import setSite
+from zope.globalrequest import setRequest
 
 from collective.transmogrifier.transmogrifier import Transmogrifier
 from collective.transmogrifier.transmogrifier import configuration_registry
@@ -29,7 +32,14 @@ if __name__ == '__main__':
     admin = UnrestrictedUser('admin', '', ['Manager'], '')
     newSecurityManager(None, admin)
 
-    site = app[args_.site]
+    app = makerequest(app)
+    request = app.REQUEST
+    request['PARENTS'] = [app]
+    setRequest(request)
+
+    sitepath = args_.site
+    site = app.unrestrictedTraverse(sitepath)
+    setSite(site)
 
     Transmogrifier._raw = []  # TODO: bad bad boy, put this upstream
     Transmogrifier(site)(filename)
