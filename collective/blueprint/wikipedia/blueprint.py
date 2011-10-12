@@ -11,7 +11,7 @@ from collective.transmogrifier.interfaces import ISection
 from lxml import etree
 logger = logging.getLogger('wikipedia import')
 
-XMLNS = '{http://www.mediawiki.org/xml/export-0.4/}'
+XMLNS = '{http://www.mediawiki.org/xml/export-0.5/}'
 WIKI_PATTERN = re.compile(r'\[\[([\w\W]+?)\]\]')
 
 class Wikipedia(object):
