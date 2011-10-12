@@ -18,7 +18,7 @@ Import blueprint is not yet done so please help import wikipedia to Plone_.
 4. download wikipedia articles and untar it::
 
     % wget http://dumps.wikimedia.org/simplewiki/latest/simplewiki-latest-pages-articles.xml.bz2
-    % tar jxvf simplewiki-pages-articles-xml.bz2
+    % bunzip2 simplewiki-latest-pages-articles.xml.bz2
 
 4. make sure that you point to right xml in config::
 
