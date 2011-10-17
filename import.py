@@ -42,7 +42,13 @@ if __name__ == '__main__':
     setSite(site)
 
     Transmogrifier._raw = []  # TODO: bad bad boy, put this upstream
-    Transmogrifier(site)(filename)
+    try:
+        Transmogrifier(site)(filename)
+    except:
+        import ipdb, sys
+        e, m, tb = sys.exc_info()
+        print m
+        ipdb.post_mortem(tb)
 
     transaction.commit()
 
