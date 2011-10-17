@@ -26,5 +26,6 @@ setup(name='collective.blueprint.wikipedia',
           'lxml',
           'collective.transmogrifier',
           'plone.app.transmogrifier',
+          'py-wikimarkup',
       ],
       )

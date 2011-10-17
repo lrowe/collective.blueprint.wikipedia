@@ -9,10 +9,53 @@ from collective.transmogrifier.interfaces import ISectionBlueprint
 from collective.transmogrifier.interfaces import ISection
 
 from lxml import etree
+
+from wikimarkup import parse, registerInternalLinkHook
+
+from wikimarkup import parse, registerInternalLinkHook
+
+def wikipediaLinkHook(parser_env, namespace, body):
+    # namespace is going to be 'Wikipedia'
+    (article, pipe, text) = body.partition('|')
+    href = article.strip().capitalize().replace(' ', '_')
+    text = (text or article).strip()
+    return '<a href="http://en.wikipedia.org/wiki/%s">%s</a>' % (href, text)
+
+registerInternalLinkHook('Wikipedia', wikipediaLinkHook)
+
+# global vars
+categories = []
+title_id = {}
+
+def categoryLinkHook(parser_env, namespace, body):
+    # namespace is going to be 'Category'
+    global categories
+    categories.append(body)
+    return ''
+
+registerInternalLinkHook('Category', categoryLinkHook)
+
+def resolveuidLinkHook(parser_env, namespace, body):
+    # namespace is going to be None
+    global title_id
+    (article, pipe, text) = body.partition('|')
+    text = (text or article).strip()
+    normalized = article.strip().lower().replace(' ', '_')
+    pageid = title_id.get(normalized)
+    if pageid is not None:
+        uuid = '%032x' % pageid
+        return '<a href="resolveuid/%s">%s</a>' % (uuid, text)
+    else:
+        return '<a class="missing" href=".">%s</a>' % text
+
+registerInternalLinkHook(None, resolveuidLinkHook)
+
 logger = logging.getLogger('wikipedia import')
 
 XMLNS = '{http://www.mediawiki.org/xml/export-0.5/}'
+LANGUAGE_PATTERN = re.compile(r'(\n)?\[\[\w\w:[^\]]+\]\](?(1)\n)')
 WIKI_PATTERN = re.compile(r'\[\[([\w\W]+?)\]\]')
+
 
 class Wikipedia(object):
     classProvides(ISectionBlueprint)
@@ -34,26 +77,28 @@ class Wikipedia(object):
 
         j = 1
         fxml = open(self.options['xml'])
+        
+        global title_id
+        title_id.clear()
         context = etree.iterparse(fxml, tag=XMLNS+"page")
         for action, element in context:
-
-            title = [i for i in element.iter(tag=XMLNS+'title')][0].text
-            text = unicode([i for i in element.iter(tag=XMLNS+'text')][0].text).encode('utf-8')
-
+            title = element.find(XMLNS+'title').text.strip().lower().replace(' ', '_')
+            title_id[title] = int(element.find(XMLNS+'id').text)
+        
+        fxml.seek(0,0)
+        context = etree.iterparse(fxml, tag=XMLNS+"page")
+        for action, element in context:
+            title = element.find(XMLNS+'title').text
+            pageid = int(element.find(XMLNS+'id').text)
+            text = unicode(element.find(XMLNS+'revision/'+XMLNS+'text').text)
             # remove i18n wiki links from text
-            for i in WIKI_PATTERN.findall(text):
-                if  ':' not in i or \
-                   (':' in i and i[i.find(':')-1] == '\\'):
-                    continue
-                if len(i.split(':')[0]) != 2:
-                    continue
-                if text[text.find(i)-3] == '\n':
-                    text = text.replace('\n[['+i+']]', '')
-                elif text.find(i)+len(i)+2 < len(text) and \
-                     text[text.find(i)+len(i)+2] == '\n':
-                    text = text.replace('[['+i+']]\n', '')
-                else:
-                    text = text.replace('[['+i+']]', '')
+            LANGUAGE_PATTERN.subn('', text)
+            #import ipdb; ipdb.set_trace()
+
+            global categories
+            del categories[:]
+            html = parse(text)
+
 
             j += 1
             if j < start_at_number:
@@ -65,6 +110,9 @@ class Wikipedia(object):
             yield dict(
                     _wiki_title = title,
                     _wiki_text = text,
+                    _wiki_html = html,
+                    _wiki_categories = tuple(categories),
+                    _wiki_id = pageid,
                     )
 
             if j == stop_at_number and stop_at_number != 0:
