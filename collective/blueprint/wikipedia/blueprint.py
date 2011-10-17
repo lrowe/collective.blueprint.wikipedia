@@ -10,8 +10,6 @@ from collective.transmogrifier.interfaces import ISection
 
 from lxml import etree
 
-from wikimarkup.parser import Parser
-
 EXTERNAL_WIKIS = dict(
     wikipedia = "http://en.wikipedia.org/wiki",
     w = "http://en.wikipedia.org/wiki",
@@ -92,12 +90,18 @@ class Wikipedia(object):
         sitename = siteinfo.find(XMLNS+'sitename').text
         sitebase = siteinfo.find(XMLNS+'base').text
 
-        parser = Parser()
-        parser.registerInternalLinkHook('Wikipedia', externalWikiLinkHook)
-        parser.registerInternalLinkHook('w', externalWikiLinkHook)
-        parser.registerInternalLinkHook('wiktionary', externalWikiLinkHook)
-        parser.registerInternalLinkHook('Category', categoryLinkHook)
-        parser.registerInternalLinkHook(None, resolveuidLinkHook)
+        templates = {}
+        allowed_tags = []
+        allowed_self_closing_tags = []
+        allowed_attributes = []
+        interwiki = {}
+        namespaces = {}
+
+        from mediawiki_parser.preprocessor import make_parser
+        preprocessor = make_parser(templates)
+
+        from mediawiki_parser.html import make_parser
+        parser = make_parser(allowed_tags, allowed_self_closing_tags, allowed_attributes, interwiki, namespaces)
 
         global title_id
         title_id.clear()
@@ -130,31 +134,37 @@ class Wikipedia(object):
 
                 global categories
                 del categories[:]
-                html = parser.parse(text, show_toc=False)
+                
+                try:
+                    text = text + '\n'
+                    preprocessed_text = preprocessor.parse(text.replace('\t', ' '*8))
+                    html = parser.parse(preprocessed_text.leaves()).value
+                except:
+                    raise
+                else:
+                    j += 1
+                    if j < start_at_number:
+                        continue
+                    logger.warn(str(j-1)+': '+title)
+                    if title == 'Angiography':
+                        import ipdb; ipdb.set_trace()
 
-                j += 1
-                if j < start_at_number:
-                    continue
-                logger.warn(str(j-1)+': '+title)
-                if title == 'Angiography':
-                    import ipdb; ipdb.set_trace()
+                    yield dict(
+                            _wiki_sitename = sitename,
+                            _wiki_sitebase = sitebase,
+                            _wiki_namespace = namespace,
+                            _wiki_title = title,
+                            _wiki_text = text,
+                            _wiki_html = html,
+                            _wiki_categories = tuple(categories),
+                            _wiki_id = pageid,
+                            )
 
-                yield dict(
-                        _wiki_sitename = sitename,
-                        _wiki_sitebase = sitebase,
-                        _wiki_namespace = namespace,
-                        _wiki_title = title,
-                        _wiki_text = text,
-                        _wiki_html = html,
-                        _wiki_categories = tuple(categories),
-                        _wiki_id = pageid,
-                        )
-
-                if j == stop_at_number and stop_at_number != 0:
-                    break
-                if commit_at_every != 0 and (j-1) % commit_at_every == 0:
-                    logger.warn( ('*'*10) + ' COMMITING ' + ('*'*10) )
-                    import transaction; transaction.commit()
+                    if j == stop_at_number and stop_at_number != 0:
+                        break
+                    if commit_at_every != 0 and (j-1) % commit_at_every == 0:
+                        logger.warn( ('*'*10) + ' COMMITING ' + ('*'*10) )
+                        import transaction; transaction.commit()
 
             element.clear()
             parent = element.getparent()

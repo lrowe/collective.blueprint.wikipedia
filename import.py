@@ -47,7 +47,10 @@ if __name__ == '__main__':
     except:
         import ipdb, sys
         e, m, tb = sys.exc_info()
-        print m
+        try:
+            print m
+        except:
+            pass
         ipdb.post_mortem(tb)
 
     transaction.commit()
