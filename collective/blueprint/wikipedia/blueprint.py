@@ -17,15 +17,6 @@ from wikimarkup.parser import Parser
 
 from summarize import summarize
 
-def externalWikiLinkHook(parser_env, namespace, body):
-    namespace = namespace.lower()
-    (article, pipe, text) = body.partition('|')
-    base = EXTERNAL_WIKIS[namespace]
-    name = article.strip().capitalize().replace(' ', '_')
-    text = (text or article).strip()
-    return '<a href="%s/%s">%s</a>' % (base, name, text)
-
-
 logger = logging.getLogger('wikipedia import')
 
 XMLNS = '{http://www.mediawiki.org/xml/export-0.5/}'
@@ -88,6 +79,8 @@ class Wikipedia(object):
 
     def normalize(self, name):
         name = name.strip()
+        if not name:
+            return name
         namespace = colon = ''
         if ':' in name:
             (namespace, colon, remainder) = name.partition(':')
@@ -101,7 +94,9 @@ class Wikipedia(object):
 
     def categoryLinkHook(self, parser_env, namespace, body):
         """Internal link hook to record categories"""
-        self.item_categories.append(body)
+        (article, pipe, text) = body.partition('|')
+        if article:
+            self.item_categories.append(article)
         return ''
 
     def linkHook(self, parser_env, namespace, body):
@@ -223,4 +218,4 @@ class Wikipedia(object):
                 parent.remove(previous_sibling)
                 previous_sibling = element.getprevious()
 
-        self.fxml.close()
+        #self.fxml.close()

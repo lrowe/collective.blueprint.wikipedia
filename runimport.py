@@ -2,7 +2,7 @@ import os
 from collective.transmogrifier.transmogrifier import Transmogrifier
 from collective.transmogrifier.transmogrifier import configuration_registry
 
-filepath = os.environ['RECIPE']
+filepath = os.environ['TRANSMOGRIFIER_CONFIG']
 filename = os.path.basename(filepath)
 configuration_registry.registerConfiguration(
             filename, filename, filepath, filepath)
